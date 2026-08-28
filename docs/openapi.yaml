@@ -4,8 +4,9 @@ info:
   version: 0.1.0
   description: |
     Backend of the midocss web-development platform (public site, portfolio,
-    quotes, store and admin dashboard). This document covers phase 1:
-    authentication and user/permission management.
+    quotes, store and admin dashboard). This document covers phase 1
+    (authentication and user/permission management) and phase 2 (project types,
+    portfolio and service packages).
 servers:
   - url: http://localhost:8080
     description: local
@@ -14,6 +15,7 @@ tags:
   - name: health
   - name: auth
   - name: admin
+  - name: catalog
 
 paths:
   /health/live:
@@ -242,7 +244,286 @@ paths:
         "200":
           description: permissions
 
+  /api/v1/project-types:
+    get:
+      tags: [catalog]
+      summary: List active project types (public)
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - $ref: "#/components/parameters/Search"
+      responses:
+        "200":
+          description: paginated project types
+
+  /api/v1/portfolio:
+    get:
+      tags: [catalog]
+      summary: List published portfolio projects (public)
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/ProjectTypeSlug"
+      responses:
+        "200":
+          description: paginated portfolio projects with their images
+
+  /api/v1/portfolio/{slug}:
+    get:
+      tags: [catalog]
+      summary: Get a published portfolio project by slug (public)
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          description: portfolio project
+        "404":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/packages:
+    get:
+      tags: [catalog]
+      summary: List active service packages (public)
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/ProjectTypeSlug"
+        - in: query
+          name: featured
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: paginated packages with their features
+
+  /api/v1/packages/{slug}:
+    get:
+      tags: [catalog]
+      summary: Get an active package by slug (public)
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      responses:
+        "200":
+          description: package
+        "404":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/admin/project-types:
+    get:
+      tags: [admin]
+      summary: List project types including inactive ones (permission project_types.view)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - $ref: "#/components/parameters/Search"
+      responses:
+        "200":
+          description: paginated project types
+    post:
+      tags: [admin]
+      summary: Create a project type (permission project_types.create)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectTypeInput"
+      responses:
+        "201":
+          description: created
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/admin/project-types/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    get:
+      tags: [admin]
+      summary: Get a project type (permission project_types.view)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: project type
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [admin]
+      summary: Update a project type (permission project_types.update)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectTypeInput"
+      responses:
+        "200":
+          description: updated
+    delete:
+      tags: [admin]
+      summary: Soft-delete a project type (permission project_types.delete)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204":
+          description: deleted
+
+  /api/v1/admin/portfolio:
+    get:
+      tags: [admin]
+      summary: List portfolio projects including drafts (permission portfolio.view)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/ProjectTypeSlug"
+      responses:
+        "200":
+          description: paginated portfolio projects
+    post:
+      tags: [admin]
+      summary: Create a portfolio project with its images (permission portfolio.create)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePortfolioProjectInput"
+      responses:
+        "201":
+          description: created
+
+  /api/v1/admin/portfolio/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    get:
+      tags: [admin]
+      summary: Get a portfolio project (permission portfolio.view)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: portfolio project
+    patch:
+      tags: [admin]
+      summary: Update a portfolio project (permission portfolio.update)
+      description: |
+        Omitting `images` keeps the current images; sending the array replaces
+        the whole list in a single transaction.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePortfolioProjectInput"
+      responses:
+        "200":
+          description: updated
+    delete:
+      tags: [admin]
+      summary: Soft-delete a portfolio project (permission portfolio.delete)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204":
+          description: deleted
+
+  /api/v1/admin/packages:
+    get:
+      tags: [admin]
+      summary: List packages including inactive ones (permission packages.view)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/ProjectTypeSlug"
+        - in: query
+          name: featured
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: paginated packages
+    post:
+      tags: [admin]
+      summary: Create a package with its features (permission packages.create)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePackageInput"
+      responses:
+        "201":
+          description: created
+
+  /api/v1/admin/packages/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    get:
+      tags: [admin]
+      summary: Get a package (permission packages.view)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: package
+    patch:
+      tags: [admin]
+      summary: Update a package (permission packages.update)
+      description: |
+        Omitting `features` keeps the current features; sending the array
+        replaces the whole list in a single transaction.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePackageInput"
+      responses:
+        "200":
+          description: updated
+    delete:
+      tags: [admin]
+      summary: Soft-delete a package (permission packages.delete)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204":
+          description: deleted
+
 components:
+  parameters:
+    Page:
+      in: query
+      name: page
+      schema: { type: integer, minimum: 1, default: 1 }
+    PerPage:
+      in: query
+      name: per_page
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Search:
+      in: query
+      name: search
+      schema: { type: string }
+    ProjectTypeSlug:
+      in: query
+      name: project_type
+      schema: { type: string, example: e-commerce-store }
+    Slug:
+      in: path
+      name: slug
+      required: true
+      schema: { type: string }
+    ID:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, format: uuid }
+
   securitySchemes:
     bearerAuth:
       type: http
@@ -341,6 +622,102 @@ components:
           properties:
             user: { $ref: "#/components/schemas/UserProfile" }
             tokens: { $ref: "#/components/schemas/TokenPair" }
+
+    CreateProjectTypeInput:
+      type: object
+      required: [name_ar, name_en, color_hex]
+      properties:
+        slug: { type: string, description: generated from name_en when omitted }
+        name_ar: { type: string }
+        name_en: { type: string }
+        description_ar: { type: string }
+        description_en: { type: string }
+        color_hex: { type: string, example: "#3366FF" }
+        icon_object_key: { type: string }
+        sort_order: { type: integer }
+        is_active: { type: boolean, default: true }
+
+    UpdateProjectTypeInput:
+      type: object
+      properties:
+        slug: { type: string }
+        name_ar: { type: string }
+        name_en: { type: string }
+        description_ar: { type: string }
+        description_en: { type: string }
+        color_hex: { type: string }
+        icon_object_key: { type: string }
+        sort_order: { type: integer }
+        is_active: { type: boolean }
+
+    PortfolioImageInput:
+      type: object
+      required: [object_key]
+      properties:
+        object_key: { type: string }
+        alt_ar: { type: string }
+        alt_en: { type: string }
+
+    CreatePortfolioProjectInput:
+      type: object
+      required: [title_ar, title_en]
+      properties:
+        slug: { type: string, description: generated from title_en when omitted }
+        project_type_id: { type: string, format: uuid }
+        title_ar: { type: string }
+        title_en: { type: string }
+        description_ar: { type: string }
+        description_en: { type: string }
+        external_url: { type: string, format: uri }
+        cover_object_key: { type: string }
+        completed_at: { type: string, example: "2025-04-01" }
+        sort_order: { type: integer }
+        is_published: { type: boolean, default: false }
+        images:
+          type: array
+          items: { $ref: "#/components/schemas/PortfolioImageInput" }
+
+    UpdatePortfolioProjectInput:
+      allOf:
+        - $ref: "#/components/schemas/CreatePortfolioProjectInput"
+        - type: object
+          required: []
+
+    PackageFeatureInput:
+      type: object
+      required: [text_ar, text_en]
+      properties:
+        text_ar: { type: string }
+        text_en: { type: string }
+
+    CreatePackageInput:
+      type: object
+      required: [name_ar, name_en, price_amount, currency_code]
+      properties:
+        slug: { type: string, description: generated from name_en when omitted }
+        project_type_id: { type: string, format: uuid }
+        name_ar: { type: string }
+        name_en: { type: string }
+        description_ar: { type: string }
+        description_en: { type: string }
+        price_amount:
+          type: string
+          example: "1250000.00"
+          description: decimal string, never negative, rounded to 2 places
+        currency_code: { type: string, example: IQD }
+        delivery_days: { type: integer }
+        is_featured: { type: boolean }
+        is_active: { type: boolean, default: true }
+        sort_order: { type: integer }
+        features:
+          type: array
+          items: { $ref: "#/components/schemas/PackageFeatureInput" }
+
+    UpdatePackageInput:
+      allOf:
+        - $ref: "#/components/schemas/CreatePackageInput"
+        - type: object
+          required: []
 
     ErrorEnvelope:
       type: object

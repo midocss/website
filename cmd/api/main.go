@@ -13,6 +13,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/midocss/website/internal/auth"
+	"github.com/midocss/website/internal/catalog"
 	"github.com/midocss/website/internal/config"
 	"github.com/midocss/website/internal/platform/database"
 	"github.com/midocss/website/internal/platform/logger"
@@ -63,6 +64,7 @@ func run() error {
 
 	authService := auth.NewService(auth.NewRepository(db), tokens, hasher, authorizer)
 	userService := users.NewService(users.NewRepository(db), hasher, authorizer)
+	catalogService := catalog.NewService(catalog.NewRepository(db))
 
 	router := transporthttp.NewRouter(transporthttp.Dependencies{
 		Config:     cfg,
@@ -70,9 +72,10 @@ func run() error {
 		Tokens:     tokens,
 		Authorizer: authorizer,
 		Handlers: transporthttp.Handlers{
-			Health: handler.NewHealthHandler(db, version),
-			Auth:   handler.NewAuthHandler(authService),
-			Users:  handler.NewUserHandler(userService),
+			Health:  handler.NewHealthHandler(db, version),
+			Auth:    handler.NewAuthHandler(authService),
+			Users:   handler.NewUserHandler(userService),
+			Catalog: handler.NewCatalogHandler(catalogService),
 		},
 	})
 
