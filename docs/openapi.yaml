@@ -1,0 +1,373 @@
+openapi: 3.0.3
+info:
+  title: midocss platform API
+  version: 0.1.0
+  description: |
+    Backend of the midocss web-development platform (public site, portfolio,
+    quotes, store and admin dashboard). This document covers phase 1:
+    authentication and user/permission management.
+servers:
+  - url: http://localhost:8080
+    description: local
+
+tags:
+  - name: health
+  - name: auth
+  - name: admin
+
+paths:
+  /health/live:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      responses:
+        "200":
+          description: process is running
+  /health/ready:
+    get:
+      tags: [health]
+      summary: Readiness probe (pings the database)
+      responses:
+        "200":
+          description: ready
+        "500":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/auth/register:
+    post:
+      tags: [auth]
+      summary: Register a customer account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResultEnvelope"
+        "409":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      summary: Log in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResultEnvelope"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [auth]
+      summary: Rotate a refresh token into a new token pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshInput"
+      responses:
+        "200":
+          description: new token pair
+        "401":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke one refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshInput"
+      responses:
+        "204":
+          description: revoked
+
+  /api/v1/auth/logout-all:
+    post:
+      tags: [auth]
+      summary: Revoke every session of the caller
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204":
+          description: revoked
+
+  /api/v1/auth/me:
+    get:
+      tags: [auth]
+      summary: Current user profile with effective permissions
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: profile
+        "401":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/admin/users:
+    get:
+      tags: [admin]
+      summary: List users (permission users.view)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: per_page
+          schema: { type: integer, minimum: 1, maximum: 100 }
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: role
+          schema: { type: string, example: staff }
+      responses:
+        "200":
+          description: paginated users
+        "403":
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [admin]
+      summary: Create a user (permission users.create)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserInput"
+      responses:
+        "201":
+          description: created
+        "409":
+          $ref: "#/components/responses/Error"
+
+  /api/v1/admin/users/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [admin]
+      summary: Get a user with effective permissions (permission users.view)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: user
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [admin]
+      summary: Update a user (permission users.update)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserInput"
+      responses:
+        "200":
+          description: updated
+    delete:
+      tags: [admin]
+      summary: Soft-delete a user (permission users.delete)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204":
+          description: deleted
+
+  /api/v1/admin/users/{id}/permissions:
+    put:
+      tags: [admin]
+      summary: Replace per-user permission overrides (permission roles.manage)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PermissionOverrideInput"
+      responses:
+        "200":
+          description: updated user with effective permissions
+
+  /api/v1/admin/roles:
+    get:
+      tags: [admin]
+      summary: List roles with their permissions (permission roles.view)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: roles
+
+  /api/v1/admin/permissions:
+    get:
+      tags: [admin]
+      summary: List every permission (permission roles.view)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: permissions
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Error:
+      description: unified error envelope
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+  schemas:
+    RegisterInput:
+      type: object
+      required: [full_name, email, password]
+      properties:
+        full_name: { type: string, minLength: 3, maxLength: 160 }
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        phone: { type: string }
+        locale: { type: string, enum: [ar, en] }
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+
+    RefreshInput:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string }
+
+    CreateUserInput:
+      allOf:
+        - $ref: "#/components/schemas/RegisterInput"
+        - type: object
+          required: [role_slug]
+          properties:
+            role_slug: { type: string, example: staff }
+
+    UpdateUserInput:
+      type: object
+      properties:
+        full_name: { type: string }
+        phone: { type: string }
+        locale: { type: string, enum: [ar, en] }
+        role_slug: { type: string }
+        is_active: { type: boolean }
+
+    PermissionOverrideInput:
+      type: object
+      properties:
+        allow:
+          type: array
+          items: { type: string, example: packages.create }
+        deny:
+          type: array
+          items: { type: string, example: packages.delete }
+
+    TokenPair:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        token_type: { type: string, example: Bearer }
+        expires_at: { type: string, format: date-time }
+        refresh_expires_at: { type: string, format: date-time }
+
+    UserProfile:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        full_name: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        locale: { type: string }
+        role: { type: string }
+        is_active: { type: boolean }
+        permissions:
+          type: array
+          items: { type: string }
+
+    AuthResultEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        request_id: { type: string }
+        data:
+          type: object
+          properties:
+            user: { $ref: "#/components/schemas/UserProfile" }
+            tokens: { $ref: "#/components/schemas/TokenPair" }
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        request_id: { type: string }
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum:
+                [
+                  bad_request,
+                  validation_error,
+                  unauthorized,
+                  forbidden,
+                  not_found,
+                  conflict,
+                  too_many_requests,
+                  internal_error,
+                ]
+            message: { type: string }
+            fields:
+              type: array
+              items:
+                type: object
+                properties:
+                  field: { type: string }
+                  message: { type: string }
