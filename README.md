@@ -15,7 +15,7 @@ digital store and the admin dashboard.
 | Phase | Scope | State |
 | --- | --- | --- |
 | 1 | Project skeleton, config, DB, router, middlewares, full schema migrations, auth + permissions | done |
-| 2 | Project types, portfolio, packages (CRUD + MinIO SVG upload) | next |
+| 2 | Project types, portfolio, packages: admin CRUD + public catalog endpoints | done (MinIO upload pending) |
 | 3 | Quotes system + notification outbox (email/WhatsApp) | planned |
 | 4 | Store: digital products, cart, orders | planned |
 | 5 | Payments (ZainCash) + PDF invoices + signed downloads | planned |
@@ -59,7 +59,26 @@ curl -s -X POST localhost:8080/api/v1/auth/register \
   -d '{"full_name":"Test User","email":"user@example.com","password":"passw0rd123"}'
 
 curl -s localhost:8080/api/v1/auth/me -H "Authorization: Bearer <access_token>"
+
+# Public catalog (published/active rows only, no token needed)
+curl -s localhost:8080/api/v1/project-types
+curl -s 'localhost:8080/api/v1/portfolio?project_type=e-commerce-store&page=1&per_page=20'
+curl -s localhost:8080/api/v1/portfolio/company-website
+curl -s 'localhost:8080/api/v1/packages?featured=true'
+
+# Dashboard CRUD (requires the matching permission)
+curl -s -X POST localhost:8080/api/v1/admin/project-types \
+  -H "Authorization: Bearer <access_token>" -H 'Content-Type: application/json' \
+  -d '{"name_ar":"متجر إلكتروني","name_en":"E-Commerce Store","color_hex":"#3366FF"}'
+
+curl -s -X POST localhost:8080/api/v1/admin/packages \
+  -H "Authorization: Bearer <access_token>" -H 'Content-Type: application/json' \
+  -d '{"name_ar":"الباقة الاحترافية","name_en":"Pro Package","price_amount":"1250000","currency_code":"IQD","features":[{"text_ar":"تصميم","text_en":"Design"}]}'
 ```
+
+Slugs are generated from the English name when omitted, prices are decimal
+strings validated against the active currencies, and portfolio projects start
+unpublished so they stay out of the public endpoints until reviewed.
 
 Every response uses the same envelope:
 

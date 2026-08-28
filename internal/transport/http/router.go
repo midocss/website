@@ -20,9 +20,10 @@ import (
 
 // Handlers groups every HTTP handler mounted by the router.
 type Handlers struct {
-	Health *handler.HealthHandler
-	Auth   *handler.AuthHandler
-	Users  *handler.UserHandler
+	Health  *handler.HealthHandler
+	Auth    *handler.AuthHandler
+	Users   *handler.UserHandler
+	Catalog *handler.CatalogHandler
 }
 
 // Dependencies are the shared services the routes need.
@@ -95,6 +96,16 @@ func NewRouter(deps Dependencies) *gin.Engine {
 			me.POST("/logout-all", deps.Handlers.Auth.LogoutAll)
 		}
 
+		// Public catalog: published/active rows only, no authentication.
+		public := v1.Group("")
+		{
+			public.GET("/project-types", deps.Handlers.Catalog.ListPublicProjectTypes)
+			public.GET("/portfolio", deps.Handlers.Catalog.ListPublicPortfolio)
+			public.GET("/portfolio/:slug", deps.Handlers.Catalog.GetPublicPortfolioProject)
+			public.GET("/packages", deps.Handlers.Catalog.ListPublicPackages)
+			public.GET("/packages/:slug", deps.Handlers.Catalog.GetPublicPackage)
+		}
+
 		admin := v1.Group("/admin", authenticated)
 		{
 			users := admin.Group("/users")
@@ -107,6 +118,27 @@ func NewRouter(deps Dependencies) *gin.Engine {
 
 			admin.GET("/roles", middleware.RequirePermissions(deps.Authorizer, rbac.RolesView), deps.Handlers.Users.ListRoles)
 			admin.GET("/permissions", middleware.RequirePermissions(deps.Authorizer, rbac.RolesView), deps.Handlers.Users.ListPermissions)
+
+			projectTypes := admin.Group("/project-types")
+			projectTypes.GET("", middleware.RequirePermissions(deps.Authorizer, rbac.ProjectTypesView), deps.Handlers.Catalog.ListProjectTypes)
+			projectTypes.GET("/:id", middleware.RequirePermissions(deps.Authorizer, rbac.ProjectTypesView), deps.Handlers.Catalog.GetProjectType)
+			projectTypes.POST("", middleware.RequirePermissions(deps.Authorizer, rbac.ProjectTypesCreate), deps.Handlers.Catalog.CreateProjectType)
+			projectTypes.PATCH("/:id", middleware.RequirePermissions(deps.Authorizer, rbac.ProjectTypesUpdate), deps.Handlers.Catalog.UpdateProjectType)
+			projectTypes.DELETE("/:id", middleware.RequirePermissions(deps.Authorizer, rbac.ProjectTypesDelete), deps.Handlers.Catalog.DeleteProjectType)
+
+			portfolio := admin.Group("/portfolio")
+			portfolio.GET("", middleware.RequirePermissions(deps.Authorizer, rbac.PortfolioView), deps.Handlers.Catalog.ListPortfolio)
+			portfolio.GET("/:id", middleware.RequirePermissions(deps.Authorizer, rbac.PortfolioView), deps.Handlers.Catalog.GetPortfolioProject)
+			portfolio.POST("", middleware.RequirePermissions(deps.Authorizer, rbac.PortfolioCreate), deps.Handlers.Catalog.CreatePortfolioProject)
+			portfolio.PATCH("/:id", middleware.RequirePermissions(deps.Authorizer, rbac.PortfolioUpdate), deps.Handlers.Catalog.UpdatePortfolioProject)
+			portfolio.DELETE("/:id", middleware.RequirePermissions(deps.Authorizer, rbac.PortfolioDelete), deps.Handlers.Catalog.DeletePortfolioProject)
+
+			packages := admin.Group("/packages")
+			packages.GET("", middleware.RequirePermissions(deps.Authorizer, rbac.PackagesView), deps.Handlers.Catalog.ListPackages)
+			packages.GET("/:id", middleware.RequirePermissions(deps.Authorizer, rbac.PackagesView), deps.Handlers.Catalog.GetPackage)
+			packages.POST("", middleware.RequirePermissions(deps.Authorizer, rbac.PackagesCreate), deps.Handlers.Catalog.CreatePackage)
+			packages.PATCH("/:id", middleware.RequirePermissions(deps.Authorizer, rbac.PackagesUpdate), deps.Handlers.Catalog.UpdatePackage)
+			packages.DELETE("/:id", middleware.RequirePermissions(deps.Authorizer, rbac.PackagesDelete), deps.Handlers.Catalog.DeletePackage)
 		}
 	}
 
